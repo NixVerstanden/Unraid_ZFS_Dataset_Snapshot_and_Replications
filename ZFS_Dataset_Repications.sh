@@ -164,6 +164,19 @@ pre_run_checks() {
     exit 1
   fi
   #
+  if [ "$destination_remote" = "yes" ]; then
+    echo "Replication target is a remote server. I will check it is available..."
+    # Attempt an SSH connection. If it fails, print an error message and exit.
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "${remote_user}@${remote_server}" echo 'SSH connection successful' &>/dev/null; then
+      msg='SSH connection failed. Please check your remote server details and ensure ssh keys are exchanged.'
+      echo "$msg"
+      unraid_notify "$msg" "failure"
+      exit 1
+    fi
+  else
+    echo "Replication target is a local/same server."
+  fi
+  #
   # check script configuration variables
   if [ "$replication" != "zfs" ] && [ "$replication" != "rsync" ] && [ "$replication" != "none" ]; then
     msg="$replication is not a valid replication method. Please set it to either 'zfs', 'rsync', or 'none'."
@@ -212,24 +225,6 @@ pre_run_checks() {
   fi
   # If all checks passed print below
   echo "All pre-run checks passed. Continuing..."
-}
-#
-####################
-#
-# This function performs pre-run checks.
-pre_run_destination_check() {
-  if [ "$destination_remote" = "yes" ]; then
-    echo "Replication target is a remote server. I will check it is available..."
-    # Attempt an SSH connection. If it fails, print an error message and exit.
-    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "${remote_user}@${remote_server}" echo 'SSH connection successful' &>/dev/null; then
-      msg='SSH connection failed. Please check your remote server details and ensure ssh keys are exchanged.'
-      echo "$msg"
-      unraid_notify "$msg" "failure"
-      exit 1
-    fi
-  else
-    echo "Replication target is a local/same server."
-  fi
 }
 #
 ####################
@@ -548,7 +543,6 @@ run_for_each_dataset() {
 
   for source_dataset_name in "${selected_source_datasets[@]}"; do
     update_paths $source_dataset_name
-    pre_run_destination_check
     echo "Performing autoprune for $source_dataset_name"
     autoprune
     echo "Performing rsync replication for $source_dataset_name"
